@@ -14,7 +14,7 @@ var infoLog *log.Logger
 var errorLog *log.Logger
 
 func main() {
-	// Write log
+	// Logger
 	var file, err = os.OpenFile("/log/all.log", os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal(err)
