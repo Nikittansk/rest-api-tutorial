@@ -1,44 +1,49 @@
 package main
 
 import (
+	"github.com/julienschmidt/httprouter"
 	"log"
 	"net/http"
-	"os"
+	"rest-api-tutorial/internal/config"
 	"rest-api-tutorial/internal/user"
+	"rest-api-tutorial/pkg/logging"
 	"time"
-
-	"github.com/julienschmidt/httprouter"
 )
 
-var infoLog *log.Logger
-var errorLog *log.Logger
+const (
+	cfgPath = "config.yaml"
+	lgrPath = "logs/all.log"
+)
 
 func main() {
 	// Logger
-	var file, err = os.OpenFile("/log/all.log", os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		log.Fatal(err)
-	}
-	infoLog = log.New(file, "INFO\t", log.Ldate|log.Ltime)
-	errorLog = log.New(file, "ERROR\t", log.Ldate|log.Ltime|log.Llongfile)
+	lgr, err := logging.NewLogging(lgrPath)
 
-	infoLog.Println("Create router")
+	// Config
+	cfg, err := config.NewConfig(cfgPath)
+	if err != nil {
+		lgr.ErrorLog.Fatal(err)
+	}
+
+	lgr.InfoLog.Println("Create router")
 	router := httprouter.New()
 
-	infoLog.Println("Register user handler")
+	lgr.InfoLog.Println("Register user handler")
 	handler := user.NewHandler()
 	handler.Register(router)
-	start(router)
+	start(router, cfg, lgr)
+
 }
 
-func start(router *httprouter.Router) {
+func start(router *httprouter.Router, cfg *config.Config, lgr *logging.Logging) {
 	server := &http.Server{
-		Addr:         ":8080",
+		Addr:         cfg.Server.Host + ":" + cfg.Server.Port,
 		Handler:      router,
-		ErrorLog:     errorLog,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ErrorLog:     lgr.ErrorLog,
+		ReadTimeout:  cfg.Server.Timeout.Read * time.Second,
+		WriteTimeout: cfg.Server.Timeout.Write * time.Second,
+		IdleTimeout:  cfg.Server.Timeout.Idle * time.Second,
 	}
-	infoLog.Println("The server is running and listening on port: 8080")
-	errorLog.Fatal(server.ListenAndServe())
+	lgr.InfoLog.Printf("The server is running and listening on port: %s", cfg.Server.Port)
+	log.Fatal(server.ListenAndServe())
 }
